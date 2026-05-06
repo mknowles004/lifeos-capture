@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Capture">
+  <meta name="theme-color" content="#0d0d14">
+  <title>LifeOS Capture</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg: #0d0d14;
+      --surface: #16161f;
+      --border: #2a2a3a;
+      --accent: #7c6aff;
+      --accent-glow: rgba(124, 106, 255, 0.3);
+      --text: #e8e8f0;
+      --text-muted: #666680;
+      --success: #22c55e;
+      --error: #ef4444;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top, 20px) 20px env(safe-area-inset-bottom, 20px) 20px;
+      min-height: 100dvh;
+    }
+
+    /* Subtle animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% -20%, rgba(124,106,255,0.12) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .header-text h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+
+    .header-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .input-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 0.2s;
+    }
+
+    .input-card:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    textarea {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 16px;
+      font-family: inherit;
+      line-height: 1.5;
+      resize: none;
+      min-height: 120px;
+      width: 100%;
+      caret-color: var(--accent);
+    }
+
+    textarea::placeholder { color: var(--text-muted); }
+
+    .input-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .char-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-right: auto;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:active { transform: scale(0.96); }
+
+    .btn-voice {
+      background: var(--border);
+      color: var(--text-muted);
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+
+    .btn-voice.listening {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); }
+      50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+    }
+
+    .btn-send {
+      background: var(--accent);
+      color: white;
+      padding: 10px 20px;
+      font-size: 14px;
+    }
+
+    .btn-send:hover { background: #6b58f0; }
+    .btn-send:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    .status-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 14px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-card.visible { display: flex; }
+
+    .status-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px;
+    }
+
+    .status-sending .status-icon { background: rgba(124,106,255,0.2); color: var(--accent); }
+    .status-success .status-icon { background: rgba(34,197,94,0.2); color: var(--success); border-color: rgba(34,197,94,0.3); }
+    .status-error .status-icon { background: rgba(239,68,68,0.2); color: var(--error); }
+
+    .status-text { flex: 1; }
+    .status-title { font-weight: 600; color: var(--text); }
+    .status-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(124,106,255,0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Quick tips */
+    .tips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tip-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tip-chip:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .keyboard-hint {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🧠</div>
+      <div class="header-text">
+        <h1>LifeOS Capture</h1>
+        <p>Classify &amp; route anything instantly</p>
+      </div>
+    </div>
+
+    <div class="input-card">
+      <textarea
+        id="input"
+        placeholder="What's on your mind? Type, paste a link, or use your keyboard mic to speak…"
+        autofocus
+        maxlength="2000"
+      ></textarea>
+      <div class="input-actions">
+        <span class="char-count" id="charCount">0 / 2000</span>
+        <button class="btn btn-voice" id="voiceBtn" title="Voice input">🎤 Speak</button>
+        <button class="btn btn-send" id="sendBtn">Send →</button>
+      </div>
+    </div>
+
+    <div class="status-card" id="statusCard">
+      <div class="status-icon" id="statusIcon"></div>
+      <div class="status-text">
+        <div class="status-title" id="statusTitle"></div>
+        <div class="status-detail" id="statusDetail"></div>
+      </div>
+    </div>
+
+    <div class="tips" id="tips">
+      <div class="tip-chip" onclick="fillExample('Schedule ice delivery route for Friday')">📦 Ever Ice task</div>
+      <div class="tip-chip" onclick="fillExample('Follow up with tenant at Uvedale about lease renewal')">🏠 Real estate</div>
+      <div class="tip-chip" onclick="fillExample('https://youtube.com/watch?v=dQw4w9WgXcQ')">🎬 Video link</div>
+      <div class="tip-chip" onclick="fillExample('Book rec: The Mom Test by Rob Fitzpatrick')">📚 Book/reference</div>
+    </div>
+
+    <p class="keyboard-hint">Tap the 🎤 mic on your keyboard to dictate · ⌘↵ to send</p>
+  </div>
+
+  <script>
+    const WEBHOOK = 'https://n8n-r7ha.onrender.com/webhook/lifeos-capture';
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+    const voiceBtn = document.getElementById('voiceBtn');
+    const statusCard = document.getElementById('statusCard');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusDetail = document.getElementById('statusDetail');
+    const charCount = document.getElementById('charCount');
+
+    // Char count
+    input.addEventListener('input', () => {
+      charCount.textContent = `${input.value.length} / 2000`;
+    });
+
+    // Example filler
+    function fillExample(text) {
+      input.value = text;
+      charCount.textContent = `${text.length} / 2000`;
+      input.focus();
+    }
+
+    // Keyboard shortcut
+    input.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') send();
+    });
+
+    sendBtn.addEventListener('click', send);
+
+    function setStatus(type, title, detail, iconContent) {
+      statusCard.className = `status-card visible status-${type}`;
+      statusIcon.innerHTML = iconContent;
+      statusTitle.textContent = title;
+      statusDetail.textContent = detail;
+    }
+
+    async function send() {
+      const content = input.value.trim();
+      if (!content) { input.focus(); return; }
+
+      sendBtn.disabled = true;
+      document.getElementById('tips').style.display = 'none';
+      setStatus('sending', 'Sending to LifeOS…', 'Gemini is classifying your input', '<div class="spinner"></div>');
+
+      try {
+        const res = await fetch(WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content,
+            url: content.startsWith('http') ? content : null,
+            source: 'LifeOS PWA',
+            timestamp: new Date().toISOString()
+          })
+        });
+
+        if (res.ok) {
+          setStatus('success', '✅ Captured!', 'Classified and routed by Gemini 2.5 Flash', '✓');
+          input.value = '';
+          charCount.textContent = '0 / 2000';
+          setTimeout(() => {
+            statusCard.className = 'status-card';
+            document.getElementById('tips').style.display = 'flex';
+          }, 4000);
+        } else {
+          throw new Error(`Server responded with ${res.status}`);
+        }
+      } catch (err) {
+        setStatus('error', 'Something went wrong', err.message, '!');
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    // Voice via Web Speech API (desktop/Android - iOS uses keyboard mic)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      let isListening = false;
+
+      voiceBtn.addEventListener('click', () => {
+        if (isListening) { recognition.stop(); return; }
+        recognition.start();
+      });
+
+      recognition.onstart = () => {
+        isListening = true;
+        voiceBtn.className = 'btn btn-voice listening';
+        voiceBtn.textContent = '⏹ Stop';
+      };
+
+      recognition.onresult = (e) => {
+        const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+        input.value = transcript;
+        charCount.textContent = `${transcript.length} / 2000`;
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        voiceBtn.className = 'btn btn-voice';
+        voiceBtn.innerHTML = '🎤 Speak';
+      };
+
+      recognition.onerror = (e) => {
+        isListening = false;
+        voiceBtn.className = 'btn btn-voice';
+        voiceBtn.innerHTML = '🎤 Speak';
+      };
+    } else {
+      // iOS Safari — hide the web speech button, rely on keyboard mic
+      voiceBtn.title = 'Use the 🎤 mic key on your keyboard to dictate';
+      voiceBtn.style.opacity = '0.4';
+      voiceBtn.disabled = true;
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
