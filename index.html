@@ -356,7 +356,7 @@
       }
 
       sendBtn.disabled = true;
-      setStatus('sending', 'Sending to LifeOS…', selectedType ? 'Routing directly by tag' : 'Gemini is classifying your input', '<div class="spinner"></div>');
+      setStatus('sending', 'Sending to LifeOS…', 'Gemini is summarizing & routing your input…', '<div class="spinner"></div>');
 
       try {
         const res = await fetch(WEBHOOK, {
@@ -373,7 +373,7 @@
         });
 
         if (res.ok) {
-          setStatus('success', '✅ Captured!', selectedType ? `Routed directly as ${selectedType}` : 'Classified and routed by Gemini 2.5 Flash', '✓');
+          setStatus('success', '✅ Captured!', selectedType ? `Summarized & routed as ${selectedType}` : 'Classified and routed by Gemini 2.5 Flash', '✓');
           input.value = '';
           charCount.textContent = '0 / 2000';
           
