@@ -220,27 +220,35 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Quick tips */
-    .tips {
+    /* Quick tags */
+    .tags-container {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
 
-    .tip-chip {
+    .tag-chip {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 6px 12px;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text-muted);
       cursor: pointer;
       transition: all 0.15s;
+      user-select: none;
     }
 
-    .tip-chip:hover {
+    .tag-chip:hover {
       border-color: var(--accent);
       color: var(--text);
+    }
+
+    .tag-chip.selected {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      color: var(--text);
+      box-shadow: 0 0 10px var(--accent-glow);
     }
 
     .keyboard-hint {
@@ -282,11 +290,16 @@
       </div>
     </div>
 
-    <div class="tips" id="tips">
-      <div class="tip-chip" onclick="fillExample('Schedule ice delivery route for Friday')">📦 Ever Ice task</div>
-      <div class="tip-chip" onclick="fillExample('Follow up with tenant at Uvedale about lease renewal')">🏠 Real estate</div>
-      <div class="tip-chip" onclick="fillExample('https://youtube.com/watch?v=dQw4w9WgXcQ')">🎬 Video link</div>
-      <div class="tip-chip" onclick="fillExample('Book rec: The Mom Test by Rob Fitzpatrick')">📚 Book/reference</div>
+    <div class="tags-container" id="tagsContainer">
+      <div class="tag-chip" data-type="task" data-category="ever_ice">📦 Ever Ice Task</div>
+      <div class="tag-chip" data-type="task" data-category="real_estate">🏠 Real Estate Task</div>
+      <div class="tag-chip" data-type="task" data-category="personal">👤 Personal Task</div>
+      <div class="tag-chip" data-type="video" data-category="general">🎬 Video Link</div>
+      <div class="tag-chip" data-type="note" data-category="general">📝 Note / Ref</div>
+      <div class="tag-chip" data-type="idea" data-category="general">💡 Idea / Brainstorm</div>
+      <div class="tag-chip" data-type="book" data-category="general">📚 Book Rec</div>
+      <div class="tag-chip" data-type="recipe" data-category="general">🍳 Recipe</div>
+      <div class="tag-chip" data-type="article" data-category="general">📄 Article / Reading</div>
     </div>
 
     <p class="keyboard-hint">Tap the 🎤 mic on your keyboard to dictate · ⌘↵ to send</p>
@@ -333,9 +346,17 @@
       const content = input.value.trim();
       if (!content) { input.focus(); return; }
 
+      // Get selected tag properties
+      let selectedType = null;
+      let selectedCategory = null;
+      const selectedChip = document.querySelector('.tag-chip.selected');
+      if (selectedChip) {
+        selectedType = selectedChip.getAttribute('data-type');
+        selectedCategory = selectedChip.getAttribute('data-category');
+      }
+
       sendBtn.disabled = true;
-      document.getElementById('tips').style.display = 'none';
-      setStatus('sending', 'Sending to LifeOS…', 'Gemini is classifying your input', '<div class="spinner"></div>');
+      setStatus('sending', 'Sending to LifeOS…', selectedType ? 'Routing directly by tag' : 'Gemini is classifying your input', '<div class="spinner"></div>');
 
       try {
         const res = await fetch(WEBHOOK, {
@@ -345,17 +366,22 @@
             content,
             url: content.startsWith('http') ? content : null,
             source: 'LifeOS PWA',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            type: selectedType,
+            category: selectedCategory
           })
         });
 
         if (res.ok) {
-          setStatus('success', '✅ Captured!', 'Classified and routed by Gemini 2.5 Flash', '✓');
+          setStatus('success', '✅ Captured!', selectedType ? `Routed directly as ${selectedType}` : 'Classified and routed by Gemini 2.5 Flash', '✓');
           input.value = '';
           charCount.textContent = '0 / 2000';
+          
+          // Deselect selected tag
+          if (selectedChip) selectedChip.classList.remove('selected');
+          
           setTimeout(() => {
             statusCard.className = 'status-card';
-            document.getElementById('tips').style.display = 'flex';
           }, 4000);
         } else {
           throw new Error(`Server responded with ${res.status}`);
@@ -366,6 +392,19 @@
         sendBtn.disabled = false;
       }
     }
+
+    // Tag Selection Logic
+    const tagChips = document.querySelectorAll('.tag-chip');
+    tagChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        if (chip.classList.contains('selected')) {
+          chip.classList.remove('selected');
+        } else {
+          tagChips.forEach(c => c.classList.remove('selected'));
+          chip.classList.add('selected');
+        }
+      });
+    });
 
     // Voice via Web Speech API (desktop/Android - iOS uses keyboard mic)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
